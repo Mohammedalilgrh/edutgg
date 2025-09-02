@@ -1,0 +1,14 @@
+[
+  {
+    "title": "Mathematics - Trigonometry",
+    "desc": "Learn sin, cos, tan tables",
+    "schedule": "16:00 Daily",
+    "price": 9.99
+  },
+  {
+    "title": "Physics - Mechanics",
+    "desc": "Newton's Laws & Motion",
+    "schedule": "Mon/Wed/Fri 18:00",
+    "price": 12.99
+  }
+]
