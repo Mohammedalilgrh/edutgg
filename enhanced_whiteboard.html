@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>EduBoard - Professional Teaching Whiteboard</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      touch-action: none;
+    }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #000;
+      color: white;
+      overflow: hidden;
+      height: 100vh;
+    }
+    .toolbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      background: rgba(18, 18, 18, 0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid #4CAF50;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      z-index: 1000;
+      gap: 10px;
+      overflow-x: auto;
+    }
+    .tool-btn {
+      background: #2a2a2a;
+      border: 1px solid #444;
+      color: white;
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+      min-width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .tool-btn:hover {
+      background: #333;
+      border-color: #4CAF50;
+    }
+    .tool-btn.active {
+      background: #4CAF50;
+      border-color: #4CAF50;
+    }
+    .color-picker {
+      display: flex;
+      gap: 5px;
+      margin-left: 10px;
+    }
+    .color-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid transparent;
+    }
+    .color-btn.active {
+      border-color: white;
+      transform: scale(1.1);
+    }
+    .canvas-container {
+      position: fixed;
+      top: 60px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      overflow: hidden;
+      background: #000;
+    }
+    #mainCanvas {
+      position: absolute;
+      cursor: crosshair;
+      touch-action: none;
+    }
+    .text-input {
+      position: absolute;
+      background: rgba(0,0,0,0.8);
+      border: 1px solid #4CAF50;
+      border-radius: 6px;
+      padding: 10px;
+      display: none;
+      z-index: 2000;
+    }
+    .text-input textarea {
+      background: #121212;
+      color: white;
+      border: 1px solid #444;
+      border-radius: 4px;
+      padding: 8px;
+      width: 200px;
+      height: 80px;
+      resize: none;
+    }
+    .text-input button {
+      margin-top: 5px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .lesson-modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #121212;
+      border: 1px solid #4CAF50;
+      border-radius: 8px;
+      padding: 20px;
+      z-index: 3000;
+      display: none;
+      min-width: 300px;
+    }
+    .lesson-modal input, .lesson-modal select {
+      width: 100%;
+      padding: 8px;
+      margin: 5px 0;
+      background: #2a2a2a;
+      border: 1px solid #444;
+      border-radius: 4px;
+      color: white;
+    }
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.8);
+      z-index: 2500;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <button class="tool-btn" id="penBtn" title="Pen">✏️</button>
+    <button class="tool-btn" id="eraserBtn" title="Eraser">🧹</button>
+    <button class="tool-btn" id="textBtn" title="Text">📝</button>
+    <button class="tool-btn" id="lineBtn" title="Line">📏</button>
+    <button class="tool-btn" id="rectBtn" title="Rectangle">⬜</button>
+    <button class="tool-btn" id="circleBtn" title="Circle">⭕</button>
+    <button class="tool-btn" id="laserBtn" title="Laser Pointer">🔦</button>
+    
+    <div class="color-picker">
+      <div class="color-btn active" style="background: white;" data-color="white"></div>
+      <div class="color-btn" style="background: red;" data-color="red"></div>
+      <div class="color-btn" style="background: blue;" data-color="blue"></div>
+      <div class="color-btn" style="background: green;" data-color="green"></div>
+      <div class="color-btn" style="background: yellow;" data-color="yellow"></div>
+      <div class="color-btn" style="background: orange;" data-color="orange"></div>
+    </div>
+    
+    <button class="tool-btn" id="undoBtn" title="Undo">↩️</button>
+    <button class="tool-btn" id="clearBtn" title="Clear">🗑️</button>
+    <button class="tool-btn" id="saveBtn" title="Save Lesson">💾</button>
+    <button class="tool-btn" id="loadBtn" title="Load Lesson">📂</button>
+    <button class="tool-btn" id="exportBtn" title="Export PDF">📄</button>
+    <button class="tool-btn" id="zoomInBtn" title="Zoom In">➕</button>
+    <button class="tool-btn" id="zoomOutBtn" title="Zoom Out">➖</button>
+  </div>
+
+  <!-- Canvas Container -->
+  <div class="canvas-container">
+    <canvas id="mainCanvas"></canvas>
+  </div>
+
+  <!-- Text Input Modal -->
+  <div class="text-input" id="textInput">
+    <textarea id="textArea" placeholder="Type your text..."></textarea>
+    <button onclick="addText()">Add Text</button>
+  </div>
+
+  <!-- Lesson Modal -->
+  <div class="modal-overlay" id="modalOverlay"></div>
+  <div class="lesson-modal" id="lessonModal">
+    <h3 id="modalTitle">Save Lesson</h3>
+    <input type="text" id="lessonName" placeholder="Lesson name..." />
+    <select id="lessonSubject">
+      <option value="math">Mathematics</option>
+      <option value="physics">Physics</option>
+      <option value="chemistry">Chemistry</option>
+      <option value="biology">Biology</option>
+    </select>
+    <button onclick="saveLesson()">Save</button>
+    <button onclick="closeModal()">Cancel</button>
+  </div>
+
+  <script>
+    // Canvas setup
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.querySelector('.canvas-container');
+    
+    // Set canvas size
+    function resizeCanvas() {
+      canvas.width = container.clientWidth;
+      canvas.height = container.clientHeight;
+      redrawCanvas();
+    }
+    
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // State management
+    let currentState = 'pen';
+    let currentColor = 'white';
+    let lineWidth = 3;
+    let isDrawing = false;
+    let startX, startY;
+    let currentPath = [];
+    let paths = [];
+    let scaleFactor = 1;
+    let offsetX = 0, offsetY = 0;
+    let isPanning = false;
+    let lastX, lastY;
+
+    // Tool buttons
+    const tools = ['pen', 'eraser', 'text', 'line', 'rect', 'circle', 'laser'];
+    tools.forEach(tool => {
+      const btn = document.getElementById(tool + 'Btn');
+      if (btn) {
+        btn.addEventListener('click', () => {
+          setCurrentTool(tool);
+        });
+      }
+    });
+
+    // Color picker
+    document.querySelectorAll('.color-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentColor = btn.dataset.color;
+      });
+    });
+
+    // Button event listeners
+    document.getElementById('undoBtn').addEventListener('click', undo);
+    document.getElementById('clearBtn').addEventListener('click', clearCanvas);
+    document.getElementById('saveBtn').addEventListener('click', () => openModal('save'));
+    document.getElementById('loadBtn').addEventListener('click', () => openModal('load'));
+    document.getElementById('exportBtn').addEventListener('click', exportPDF);
+    document.getElementById('zoomInBtn').addEventListener('click', () => zoom(1.1));
+    document.getElementById('zoomOutBtn').addEventListener('click', () => zoom(0.9));
+
+    // Set current tool
+    function setCurrentTool(tool) {
+      currentState = tool;
+      tools.forEach(t => {
+        const btn = document.getElementById(t + 'Btn');
+        if (btn) {
+          btn.classList.toggle('active', t === tool);
+        }
+      });
+      canvas.style.cursor = tool === 'laser' ? 'none' : 'crosshair';
+    }
+
+    // Drawing functions
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('mouseout', stopDrawing);
+
+    // Touch events
+    canvas.addEventListener('touchstart', handleTouchStart);
+    canvas.addEventListener('touchmove', handleTouchMove);
+    canvas.addEventListener('touchend', handleTouchEnd);
+
+    function handleTouchStart(e) {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const mouseEvent = new MouseEvent('mousedown', {
+        clientX: touch.clientX,
+        clientY: touch.clientY
+      });
+      canvas.dispatchEvent(mouseEvent);
+    }
+
+    function handleTouchMove(e) {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const mouseEvent = new MouseEvent('mousemove', {
+        clientX: touch.clientX,
+        clientY: touch.clientY
+      });
+      canvas.dispatchEvent(mouseEvent);
+    }
+
+    function handleTouchEnd(e) {
+      e.preventDefault();
+      const mouseEvent = new MouseEvent('mouseup', {});
+      canvas.dispatchEvent(mouseEvent);
+    }
+
+    function startDrawing(e) {
+      if (e.button === 1 || e.which === 2) { // Middle mouse button for panning
+        isPanning = true;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        canvas.style.cursor = 'grabbing';
+        return;
+      }
+
+      isDrawing = true;
+      const rect = canvas.getBoundingClientRect();
+      startX = (e.clientX - rect.left - offsetX) / scaleFactor;
+      startY = (e.clientY - rect.top - offsetY) / scaleFactor;
+
+      if (currentState === 'pen' || currentState === 'eraser') {
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        currentPath = [{x: startX, y: startY}];
+      } else if (currentState === 'text') {
+        showTextInput(e.clientX, e.clientY);
+      }
+    }
+
+    function draw(e) {
+      if (isPanning) {
+        const deltaX = e.clientX - lastX;
+        const deltaY = e.clientY - lastY;
+        offsetX += deltaX;
+        offsetY += deltaY;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        redrawCanvas();
+        return;
+      }
+
+      if (!isDrawing) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const currentX = (e.clientX - rect.left - offsetX) / scaleFactor;
+      const currentY = (e.clientY - rect.top - offsetY) / scaleFactor;
+
+      if (currentState === 'pen') {
+        ctx.strokeStyle = currentColor;
+        ctx.lineWidth = lineWidth;
+        ctx.lineCap = 'round';
+        ctx.lineTo(currentX, currentY);
+        ctx.stroke();
+        currentPath.push({x: currentX, y: currentY});
+      } else if (currentState === 'eraser') {
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 20;
+        ctx.lineCap = 'round';
+        ctx.lineTo(currentX, currentY);
+        ctx.stroke();
+        currentPath.push({x: currentX, y: currentY});
+      } else if (currentState === 'laser') {
+        // Laser pointer effect
+        redrawCanvas();
+        ctx.strokeStyle = currentColor;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(currentX, currentY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+
+    function stopDrawing(e) {
+      if (isPanning) {
+        isPanning = false;
+        canvas.style.cursor = currentState === 'laser' ? 'none' : 'crosshair';
+        return;
+      }
+
+      if (!isDrawing) return;
+      isDrawing = false;
+
+      if (currentState === 'pen' || currentState === 'eraser') {
+        paths.push({
+          type: currentState,
+          color: currentColor,
+          width: lineWidth,
+          points: [...currentPath]
+        });
+      } else if (currentState === 'line' || currentState === 'rect' || currentState === 'circle') {
+        paths.push({
+          type: currentState,
+          color: currentColor,
+          width: lineWidth,
+          startX: startX,
+          startY: startY,
+          endX: (e.clientX - canvas.getBoundingClientRect().left - offsetX) / scaleFactor,
+          endY: (e.clientY - canvas.getBoundingClientRect().top - offsetY) / scaleFactor
+        });
+        redrawCanvas();
+      }
+    }
+
+    function redrawCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.translate(offsetX, offsetY);
+      ctx.scale(scaleFactor, scaleFactor);
+
+      paths.forEach(path => {
+        if (path.type === 'pen' || path.type === 'eraser') {
+          ctx.beginPath();
+          ctx.strokeStyle = path.type === 'eraser' ? '#000' : path.color;
+          ctx.lineWidth = path.width;
+          ctx.lineCap = 'round';
+          path.points.forEach((point, i) => {
+            if (i === 0) {
+              ctx.moveTo(point.x, point.y);
+            } else {
+              ctx.lineTo(point.x, point.y);
+            }
+          });
+          ctx.stroke();
+        } else if (path.type === 'line') {
+          ctx.beginPath();
+          ctx.strokeStyle = path.color;
+          ctx.lineWidth = path.width;
+          ctx.moveTo(path.startX, path.startY);
+          ctx.lineTo(path.endX, path.endY);
+          ctx.stroke();
+        } else if (path.type === 'rect') {
+          ctx.strokeStyle = path.color;
+          ctx.lineWidth = path.width;
+          const width = path.endX - path.startX;
+          const height = path.endY - path.startY;
+          ctx.strokeRect(path.startX, path.startY, width, height);
+        } else if (path.type === 'circle') {
+          ctx.strokeStyle = path.color;
+          ctx.lineWidth = path.width;
+          const radius = Math.sqrt(Math.pow(path.endX - path.startX, 2) + Math.pow(path.endY - path.startY, 2));
+          ctx.beginPath();
+          ctx.arc(path.startX, path.startY, radius, 0, 2 * Math.PI);
+          ctx.stroke();
+        }
+      });
+
+      ctx.restore();
+    }
+
+    function undo() {
+      if (paths.length > 0) {
+        paths.pop();
+        redrawCanvas();
+      }
+    }
+
+    function clearCanvas() {
+      paths = [];
+      redrawCanvas();
+    }
+
+    function showTextInput(x, y) {
+      const textInput = document.getElementById('textInput');
+      textInput.style.left = x + 'px';
+      textInput.style.top = y + 'px';
+      textInput.style.display = 'block';
+      document.getElementById('textArea').focus();
+    }
+
+    function addText() {
+      const text = document.getElementById('textArea').value;
+      if (text) {
+        paths.push({
+          type: 'text',
+          text: text,
+          x: (parseInt(document.getElementById('textInput').style.left) - offsetX) / scaleFactor,
+          y: (parseInt(document.getElementById('textInput').style.top) - offsetY) / scaleFactor,
+          color: currentColor
+        });
+        redrawCanvas();
+      }
+      document.getElementById('textInput').style.display = 'none';
+      document.getElementById('textArea').value = '';
+    }
+
+    function zoom(factor) {
+      scaleFactor *= factor;
+      redrawCanvas();
+    }
+
+    function openModal(type) {
+      document.getElementById('modalOverlay').style.display = 'block';
+      document.getElementById('lessonModal').style.display = 'block';
+      document.getElementById('modalTitle').textContent = type === 'save' ? 'Save Lesson' : 'Load Lesson';
+    }
+
+    function closeModal() {
+      document.getElementById('modalOverlay').style.display = 'none';
+      document.getElementById('lessonModal').style.display = 'none';
+    }
+
+    function saveLesson() {
+      const name = document.getElementById('lessonName').value;
+      const subject = document.getElementById('lessonSubject').value;
+      if (name) {
+        const lesson = {
+          name: name,
+          subject: subject,
+          paths: paths,
+          timestamp: new Date().toISOString()
+        };
+        localStorage.setItem(`lesson_${name}`, JSON.stringify(lesson));
+        alert('Lesson saved!');
+        closeModal();
+      }
+    }
+
+    function exportPDF() {
+      alert('PDF export feature will be implemented in full version');
+    }
+
+    // Initialize
+    setCurrentTool('pen');
+  </script>
+</body>
+</html>
